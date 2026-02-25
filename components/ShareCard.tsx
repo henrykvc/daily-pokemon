@@ -69,9 +69,14 @@ export default function ShareCard({ state, onClose }: Props) {
         <div className="px-6 py-5 space-y-4">
           {/* 포켓몬 */}
           <div className="flex items-center gap-4">
-            <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center text-4xl">
-              🎮
-              {/* 실제: <img src={pokemonResult.assetPath} className="pixel-art w-16 h-16" /> */}
+            <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={pokemonResult.assetPath}
+                alt={pokemonResult.name}
+                className="w-16 h-16 object-contain"
+                style={{ imageRendering: "pixelated" }}
+              />
             </div>
             <div>
               <p className="text-xs text-gray-400 font-mono">

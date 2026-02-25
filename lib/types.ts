@@ -11,13 +11,12 @@ export type PokemonType =
 export type Mood = "calm" | "normal" | "excited" | "annoyed" | "sad";
 
 export type StyleTag =
-  | "minimal" | "street" | "casual" | "formal" | "girly"
-  | "sporty" | "vintage" | "dandy" | "techwear" | "amekaji";
+  | "minimal" | "street" | "casual" | "formal" | "lovely" | "sporty";
 
 export interface PokemonData {
   id: number;                      // 도감번호 1~251
   name: string;                    // 한글 이름
-  nameEn: string;                  // 영문 이름
+  nameEn?: string;                 // 영문 이름 (선택)
   types: PokemonType[];            // 1~2개 타입
   colorAffinity: {
     main: string[];                // 어울리는 주 색 키워드 (e.g. "red", "orange")
@@ -27,6 +26,8 @@ export interface PokemonData {
   styleTags: StyleTag[];           // 어울리는 스타일 태그
   rarity?: 1 | 2 | 3;             // 1=일반, 2=레어, 3=전설급
   description: string;            // 말풍선용 짧은 문구
+  evolvesTo?: number;              // 진화 대상 포켓몬 ID
+  isEevee?: boolean;               // 이브이 특수 처리 (랜덤 진화)
 }
 
 // ── 사용자 입력 ──
@@ -48,7 +49,7 @@ export interface Mission {
 export interface PokemonResult {
   id: number;
   name: string;
-  nameEn: string;
+  nameEn?: string;
   types: PokemonType[];
   assetPath: string;               // e.g. /assets/pokemon/1.png
   description: string;
@@ -62,13 +63,14 @@ export interface DailyState {
   pokemonResult: PokemonResult;
   isAllMissionsDone: boolean;
   isAddedToDex: boolean;
+  isLeveledUpToday?: boolean;      // 오늘 덱 레벨업 발생 여부
 }
 
 // ── 도감 항목 (LocalStorage: dexCollection) ──
 export interface DexEntry {
   id: number;
   name: string;
-  nameEn: string;
+  nameEn?: string;
   types: PokemonType[];
   assetPath: string;
   registeredAt: string;            // ISO 날짜 문자열
@@ -78,34 +80,62 @@ export interface DexEntry {
 // ── 도감 전체 ──
 export type DexCollection = DexEntry[];
 
+// ── 덱 항목 ──
+export interface DeckEntry {
+  caughtId: number;       // 처음 잡았을 때 포켓몬 ID
+  currentId: number;      // 현재 형태 ID (진화 후 변경)
+  level: number;          // 1~9
+  stage: number;          // 0=기본형, 1=1차진화, 2=2차진화
+  addedDate: string;      // YYYY-MM-DD
+  eeveeEvoId?: number;    // 이브이 전용: 랜덤으로 선택된 진화 대상 ID
+}
+
 // ── LocalStorage 키 헬퍼 ──
 export const STORAGE_KEYS = {
   dailyState: (date: string) => `dailyState:${date}`,
   dexCollection: "dexCollection",
   userPrefs: "userPrefs",
+  deckEntries: "deckEntries",
 } as const;
 
-// ── 기분 레이블 ──
+// ── Mood labels ──
 export const MOOD_LABELS: Record<Mood, string> = {
-  calm: "😌 차분",
+  calm: "😌 평온",
   normal: "😐 보통",
   excited: "🤩 신남",
   annoyed: "😤 짜증",
-  sad: "😢 우울",
+  sad: "😢 슬픔",
 };
 
-// ── 스타일 태그 레이블 ──
+// ── Style tag labels ──
 export const STYLE_TAG_LABELS: Record<StyleTag, string> = {
   minimal: "미니멀",
   street: "스트릿",
   casual: "캐주얼",
   formal: "포멀",
-  girly: "걸리시",
+  lovely: "러블리",
   sporty: "스포티",
-  vintage: "빈티지",
-  dandy: "댄디",
-  techwear: "테크웨어",
-  amekaji: "아메카지",
+};
+
+// ── 타입 한글 이름 ──
+export const TYPE_LABELS: Record<PokemonType, string> = {
+  normal: "노말",
+  fire: "불",
+  water: "물",
+  grass: "풀",
+  electric: "전기",
+  ice: "얼음",
+  fighting: "격투",
+  poison: "독",
+  ground: "땅",
+  flying: "비행",
+  psychic: "에스퍼",
+  bug: "벌레",
+  rock: "바위",
+  ghost: "고스트",
+  dragon: "드래곤",
+  dark: "악",
+  steel: "강철",
 };
 
 // ── 타입 색상 매핑 (UI 뱃지용) ──

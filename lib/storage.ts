@@ -5,6 +5,7 @@ import type {
   DailyState,
   DexCollection,
   DexEntry,
+  DeckEntry,
   PokemonResult,
 } from "./types";
 import { STORAGE_KEYS } from "./types";
@@ -93,4 +94,56 @@ export function addToDex(
 export function getCollectedIds(): Set<number> {
   const dex = getDexCollection();
   return new Set(dex.map((e) => e.id));
+}
+
+// ── DeckEntries ────────────────────────────────────────────
+export function getDeckEntries(): DeckEntry[] {
+  return safeGet<DeckEntry[]>(STORAGE_KEYS.deckEntries) ?? [];
+}
+
+export function saveDeckEntries(entries: DeckEntry[]): void {
+  safeSet(STORAGE_KEYS.deckEntries, entries);
+}
+
+export function addToDeckStorage(entry: DeckEntry): DeckEntry[] {
+  const entries = getDeckEntries();
+  if (entries.length >= 3) return entries;
+  const updated = [...entries, entry];
+  safeSet(STORAGE_KEYS.deckEntries, updated);
+  return updated;
+}
+
+export function removeFromDeckStorage(caughtId: number): DeckEntry[] {
+  const entries = getDeckEntries().filter((e) => e.caughtId !== caughtId);
+  safeSet(STORAGE_KEYS.deckEntries, entries);
+  return entries;
+}
+
+export function levelUpInDeck(caughtId: number): DeckEntry | null {
+  const entries = getDeckEntries();
+  const idx = entries.findIndex((e) => e.caughtId === caughtId);
+  if (idx < 0) return null;
+  const entry = entries[idx];
+  if (entry.level >= 9) return null;
+  entries[idx] = { ...entry, level: entry.level + 1 };
+  safeSet(STORAGE_KEYS.deckEntries, entries);
+  return entries[idx];
+}
+
+export function evolveInDeck(caughtId: number, newId: number): DeckEntry | null {
+  const entries = getDeckEntries();
+  const idx = entries.findIndex((e) => e.caughtId === caughtId);
+  if (idx < 0) return null;
+  const entry = entries[idx];
+  entries[idx] = { ...entry, currentId: newId, stage: entry.stage + 1 };
+  safeSet(STORAGE_KEYS.deckEntries, entries);
+  return entries[idx];
+}
+
+export function markLeveledUpToday(date: string): DailyState | null {
+  const state = getDailyState(date);
+  if (!state) return null;
+  state.isLeveledUpToday = true;
+  setDailyState(state);
+  return state;
 }

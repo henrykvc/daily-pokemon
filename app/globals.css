@@ -27,6 +27,9 @@ html, body {
   image-rendering: crisp-edges;
 }
 
+/* ===================== */
+/* STAMP ANIMATION       */
+/* ===================== */
 @keyframes stamp {
   0%   { transform: scale(3) rotate(-10deg); opacity: 0; }
   60%  { transform: scale(0.85) rotate(2deg); opacity: 1; }
@@ -36,19 +39,164 @@ html, body {
   animation: stamp 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
 }
 
-@keyframes firework {
-  0%   { transform: scale(0) translateY(0); opacity: 1; }
-  50%  { transform: scale(1.5) translateY(-30px); opacity: 1; }
-  100% { transform: scale(1) translateY(-60px); opacity: 0; }
-}
-.firework-emoji {
-  animation: firework 1.4s ease-out forwards;
-}
-
+/* ===================== */
+/* POKE BOUNCE           */
+/* ===================== */
 @keyframes pokeBounce {
   0%, 100% { transform: translateY(0); }
   50%       { transform: translateY(-8px); }
 }
 .poke-bounce {
   animation: pokeBounce 2s ease-in-out infinite;
+}
+
+/* ===================== */
+/* POKEBALL LOADING SPIN */
+/* ===================== */
+@keyframes pokeballSpinAnim {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.pokeball-spin {
+  animation: pokeballSpinAnim 0.9s linear infinite;
+}
+
+/* ===================== */
+/* CATCH ANIMATION       */
+/* ===================== */
+
+/* 1. Pokemon shrinks into ball */
+@keyframes pokeShrinkIn {
+  0%   { transform: scale(1);    opacity: 1; }
+  60%  { transform: scale(0.08); opacity: 0.7; }
+  100% { transform: scale(0);    opacity: 0; }
+}
+.catch-pokemon-shrink {
+  animation: pokeShrinkIn 0.75s ease-in forwards;
+}
+
+/* 2. Ball drops from above */
+@keyframes ballDropAnim {
+  0%   { transform: translateY(-80px) scale(0.3); opacity: 0; }
+  55%  { transform: translateY(10px)  scale(1.08); opacity: 1; }
+  75%  { transform: translateY(-5px)  scale(0.96); opacity: 1; }
+  100% { transform: translateY(0)     scale(1);    opacity: 1; }
+}
+.catch-ball-drop {
+  animation: ballDropAnim 0.65s cubic-bezier(0.215, 0.61, 0.355, 1) forwards;
+}
+
+/* 3. Ball shakes 3 times */
+@keyframes ballShakeAnim {
+  /* Shake 1 */
+  0%   { transform: rotate(0deg);   }
+  4%   { transform: rotate(-28deg); }
+  12%  { transform: rotate(28deg);  }
+  20%  { transform: rotate(-16deg); }
+  27%  { transform: rotate(0deg);   }
+  /* Pause */
+  33%  { transform: rotate(0deg);   }
+  /* Shake 2 */
+  37%  { transform: rotate(-28deg); }
+  45%  { transform: rotate(28deg);  }
+  53%  { transform: rotate(-16deg); }
+  60%  { transform: rotate(0deg);   }
+  /* Pause */
+  66%  { transform: rotate(0deg);   }
+  /* Shake 3 */
+  70%  { transform: rotate(-28deg); }
+  78%  { transform: rotate(28deg);  }
+  86%  { transform: rotate(-16deg); }
+  93%  { transform: rotate(0deg);   }
+  /* Click pulse */
+  96%  { transform: rotate(0deg) scale(1.06); }
+  100% { transform: rotate(0deg) scale(1);    }
+}
+.catch-ball-shake {
+  animation: ballShakeAnim 1.8s ease-in-out forwards;
+}
+
+/* 4. Stars burst around ball */
+@keyframes starBurstAnim {
+  0%   { transform: translate(-50%, -50%) scale(0);   opacity: 1; }
+  50%  { transform: translate(-50%, -50%) scale(1.5); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+}
+.catch-star {
+  animation: starBurstAnim 0.6s ease-out forwards;
+}
+
+/* 5. "Gotcha!" text */
+@keyframes gotchaAppearAnim {
+  0%   { transform: scale(0.4) translateY(16px); opacity: 0; }
+  100% { transform: scale(1)   translateY(0);    opacity: 1; }
+}
+.catch-gotcha-text {
+  animation: gotchaAppearAnim 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.25s both;
+}
+
+/* ===================== */
+/* EVOLUTION ANIMATION   */
+/* ===================== */
+
+/* 1. 기존 포켓몬 밝게 사라짐 */
+@keyframes evoFlashOut {
+  0%   { filter: brightness(1) saturate(1); opacity: 1; }
+  50%  { filter: brightness(8) saturate(0); opacity: 1; }
+  100% { filter: brightness(15) saturate(0); opacity: 0; }
+}
+.evo-flash-out {
+  animation: evoFlashOut 0.7s ease-in forwards;
+}
+
+/* 2. 흰 빛 폭발 */
+@keyframes evoWhitePulse {
+  0%   { transform: scale(0.5); opacity: 1; }
+  60%  { transform: scale(2.5); opacity: 0.8; }
+  100% { transform: scale(4);   opacity: 0; }
+}
+.evo-white-pulse {
+  animation: evoWhitePulse 0.8s ease-out forwards;
+}
+
+/* 3. 새 포켓몬 등장 */
+@keyframes evoAppear {
+  0%   { filter: brightness(15) saturate(0); transform: scale(0.7); opacity: 0; }
+  35%  { filter: brightness(5)  saturate(0); opacity: 1; }
+  70%  { filter: brightness(1.5) saturate(0.5); transform: scale(1.05); }
+  100% { filter: brightness(1)  saturate(1); transform: scale(1); opacity: 1; }
+}
+.evo-appear {
+  animation: evoAppear 0.9s ease-out 0.15s both;
+}
+
+/* 4. 진화 텍스트 */
+@keyframes evoText {
+  0%   { transform: scale(0.4) translateY(20px); opacity: 0; }
+  100% { transform: scale(1)   translateY(0);    opacity: 1; }
+}
+.evo-text {
+  animation: evoText 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.6s both;
+}
+
+/* 5. 별 파티클 (진화) */
+@keyframes evoStarAnim {
+  0%   { transform: translate(-50%, -50%) scale(0) rotate(0deg);   opacity: 1; }
+  60%  { transform: translate(-50%, -50%) scale(1.8) rotate(180deg); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(0.5) rotate(360deg); opacity: 0; }
+}
+.evo-star {
+  animation: evoStarAnim 0.8s ease-out forwards;
+}
+
+/* ===================== */
+/* LEVEL UP BADGE        */
+/* ===================== */
+@keyframes levelUpBadge {
+  0%   { transform: scale(0) translateY(10px); opacity: 0; }
+  50%  { transform: scale(1.15) translateY(-4px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+.level-up-badge {
+  animation: levelUpBadge 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }

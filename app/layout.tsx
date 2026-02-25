@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import BottomNav from "@/components/BottomNav";
 
 export const metadata: Metadata = {
   title: "오늘의 포켓몬 | Daily Pokémon",
@@ -30,7 +31,10 @@ export default function RootLayout({
       <body className="min-h-screen bg-gradient-to-b from-red-50 to-white">
         {/* 최대 너비 480px 모바일 컨테이너 */}
         <div className="max-w-[480px] mx-auto min-h-screen flex flex-col">
-          {children}
+          <div className="flex-1 pb-16">
+            {children}
+          </div>
+          <BottomNav />
         </div>
       </body>
     </html>
