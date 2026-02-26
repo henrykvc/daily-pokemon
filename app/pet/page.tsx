@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getSeoulDateString } from "@/lib/date";
@@ -100,6 +100,14 @@ function CatchAnimation({ src, name, onDone }: { src: string; name: string; onDo
 }
 
 export default function PetPage() {
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <PetPageInner />
+    </Suspense>
+  );
+}
+
+function PetPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const today = getSeoulDateString();
