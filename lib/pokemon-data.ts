@@ -285,6 +285,10 @@ export function getSpriteUrl(id: number): string {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`;
 }
 
+export function getShinySpriteUrl(id: number): string {
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/shiny/${id}.gif`;
+}
+
 export function getPokemonById(id: number): PokemonData | undefined {
   return POKEMON_DATA.find((p) => p.id === id);
 }

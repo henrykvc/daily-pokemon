@@ -17,21 +17,6 @@ const TABS = [
     ),
   },
   {
-    href: "/deck",
-    label: "덱",
-    matchPaths: ["/deck"],
-    icon: (active: boolean) => (
-      <svg width="22" height="22" viewBox="0 0 100 100">
-        <path d="M 14,50 A 36,36 0 0 1 86,50 Z" fill={active ? "#FF1111" : "#ccc"} />
-        <path d="M 14,50 A 36,36 0 0 0 86,50 Z" fill={active ? "#fff" : "#eee"} />
-        <circle cx="50" cy="50" r="36" fill="none" stroke={active ? "#222" : "#aaa"} strokeWidth="5" />
-        <line x1="14" y1="50" x2="86" y2="50" stroke={active ? "#222" : "#aaa"} strokeWidth="5" />
-        <circle cx="50" cy="50" r="12" fill="white" stroke={active ? "#222" : "#aaa"} strokeWidth="5" />
-        <circle cx="50" cy="50" r="5" fill={active ? "#eee" : "#ddd"} />
-      </svg>
-    ),
-  },
-  {
     href: "/dex",
     label: "도감",
     matchPaths: ["/dex"],

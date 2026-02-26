@@ -5,10 +5,10 @@ import type {
   DailyState,
   DexCollection,
   DexEntry,
-  DeckEntry,
   PokemonResult,
 } from "./types";
 import { STORAGE_KEYS } from "./types";
+import { getPokemonDisplayData, getSpriteUrl, EEVEE_EVOLUTIONS } from "./pokemon-data";
 
 // ── 안전한 JSON 파싱 ──
 function safeGet<T>(key: string): T | null {
@@ -68,7 +68,8 @@ export function getDexCollection(): DexCollection {
 
 export function addToDex(
   pokemon: PokemonResult,
-  date: string
+  date: string,
+  isShiny?: boolean
 ): DexCollection {
   const dex = getDexCollection();
 
@@ -84,6 +85,9 @@ export function addToDex(
     assetPath: pokemon.assetPath,
     registeredAt: new Date().toISOString(),
     registeredDate: date,
+    stage: 0,
+    currentId: pokemon.id,
+    isShiny: isShiny ?? false,
   };
 
   const updated = [...dex, entry];
@@ -96,54 +100,93 @@ export function getCollectedIds(): Set<number> {
   return new Set(dex.map((e) => e.id));
 }
 
-// ── DeckEntries ────────────────────────────────────────────
-export function getDeckEntries(): DeckEntry[] {
-  return safeGet<DeckEntry[]>(STORAGE_KEYS.deckEntries) ?? [];
-}
-
-export function saveDeckEntries(entries: DeckEntry[]): void {
-  safeSet(STORAGE_KEYS.deckEntries, entries);
-}
-
-export function addToDeckStorage(entry: DeckEntry): DeckEntry[] {
-  const entries = getDeckEntries();
-  if (entries.length >= 3) return entries;
-  const updated = [...entries, entry];
-  safeSet(STORAGE_KEYS.deckEntries, updated);
-  return updated;
-}
-
-export function removeFromDeckStorage(caughtId: number): DeckEntry[] {
-  const entries = getDeckEntries().filter((e) => e.caughtId !== caughtId);
-  safeSet(STORAGE_KEYS.deckEntries, entries);
-  return entries;
-}
-
-export function levelUpInDeck(caughtId: number): DeckEntry | null {
-  const entries = getDeckEntries();
-  const idx = entries.findIndex((e) => e.caughtId === caughtId);
+// ── 도감 진화 ────────────────────────────────────────────
+export function evolveInDex(dexEntryId: number): DexEntry | null {
+  const dex = getDexCollection();
+  const idx = dex.findIndex((e) => e.id === dexEntryId);
   if (idx < 0) return null;
-  const entry = entries[idx];
-  if (entry.level >= 9) return null;
-  entries[idx] = { ...entry, level: entry.level + 1 };
-  safeSet(STORAGE_KEYS.deckEntries, entries);
-  return entries[idx];
+
+  const entry = dex[idx];
+  const currentId = entry.currentId ?? entry.id;
+  const stage = entry.stage ?? 0;
+  if (stage >= 2) return null;
+
+  const currentData = getPokemonDisplayData(currentId);
+  if (!currentData) return null;
+
+  let nextId: number | null = null;
+  let eeveeEvoId = entry.eeveeEvoId;
+
+  // 이브이 처리
+  if (currentData.evolvesTo === undefined && currentId === 133) {
+    // 이브이 1차 진화: 랜덤 선택 (아직 선택 안 된 경우)
+    if (!eeveeEvoId) {
+      eeveeEvoId = EEVEE_EVOLUTIONS[Math.floor(Math.random() * EEVEE_EVOLUTIONS.length)];
+    }
+    nextId = eeveeEvoId;
+  } else {
+    nextId = currentData.evolvesTo ?? null;
+  }
+
+  if (!nextId) return null;
+
+  const nextData = getPokemonDisplayData(nextId);
+  const newAssetPath = getSpriteUrl(nextId);
+
+  dex[idx] = {
+    ...entry,
+    currentId: nextId,
+    stage: stage + 1,
+    assetPath: newAssetPath,
+    name: nextData?.name ?? entry.name,
+    eeveeEvoId,
+  };
+
+  safeSet(STORAGE_KEYS.dexCollection, dex);
+  return dex[idx];
 }
 
-export function evolveInDeck(caughtId: number, newId: number): DeckEntry | null {
-  const entries = getDeckEntries();
-  const idx = entries.findIndex((e) => e.caughtId === caughtId);
-  if (idx < 0) return null;
-  const entry = entries[idx];
-  entries[idx] = { ...entry, currentId: newId, stage: entry.stage + 1 };
-  safeSet(STORAGE_KEYS.deckEntries, entries);
-  return entries[idx];
+// ── 이로치 / 연속 미션 스트릭 ──────────────────────────
+interface StreakData {
+  lastCompletedDate: string;
+  count: number;
 }
 
-export function markLeveledUpToday(date: string): DailyState | null {
-  const state = getDailyState(date);
-  if (!state) return null;
-  state.isLeveledUpToday = true;
-  setDailyState(state);
-  return state;
+export function getStreakData(): StreakData {
+  return safeGet<StreakData>(STORAGE_KEYS.streakData) ?? { lastCompletedDate: "", count: 0 };
+}
+
+export function onMissionsAllComplete(date: string): boolean {
+  const streak = getStreakData();
+
+  // 어제 날짜 계산
+  const today = new Date(date);
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+  let newCount: number;
+  if (streak.lastCompletedDate === yesterdayStr) {
+    newCount = streak.count + 1;
+  } else if (streak.lastCompletedDate === date) {
+    // 이미 오늘 기록됨
+    return streak.count >= 7;
+  } else {
+    newCount = 1;
+  }
+
+  const isShiny = newCount >= 7;
+  if (isShiny) newCount = 0; // 7일 달성 시 리셋
+
+  safeSet(STORAGE_KEYS.streakData, { lastCompletedDate: date, count: newCount });
+
+  if (isShiny) {
+    const state = getDailyState(date);
+    if (state) {
+      state.isShiny = true;
+      setDailyState(state);
+    }
+  }
+
+  return isShiny;
 }

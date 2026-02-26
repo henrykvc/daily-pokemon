@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getDexCollection } from "@/lib/storage";
+import { getDexCollection, evolveInDex } from "@/lib/storage";
 import type { DexCollection, DexEntry } from "@/lib/types";
 import { TYPE_COLORS, TYPE_LABELS } from "@/lib/types";
+import { getPokemonDisplayData, getSpriteUrl, getShinySpriteUrl } from "@/lib/pokemon-data";
+
 type SortMode = "id" | "recent";
 const TOTAL = 251;
 
@@ -18,6 +20,13 @@ export default function DexPage() {
     sort === "id" ? a.id - b.id : b.registeredAt.localeCompare(a.registeredAt)
   );
   const pct = Math.round((dex.length / TOTAL) * 100);
+
+  function handleEvolve(entryId: number) {
+    const evolved = evolveInDex(entryId);
+    if (evolved) {
+      setDex(getDexCollection());
+    }
+  }
 
   return (
     <main className="flex-1 flex flex-col min-h-screen bg-gray-50">
@@ -58,7 +67,9 @@ export default function DexPage() {
 
         {dex.length === 0 ? <EmptyState /> : (
           <div className="grid grid-cols-3 gap-2.5">
-            {sorted.map((entry) => <DexCard key={entry.id} entry={entry} />)}
+            {sorted.map((entry) => (
+              <DexCard key={entry.id} entry={entry} onEvolve={handleEvolve} />
+            ))}
           </div>
         )}
       </div>
@@ -66,24 +77,48 @@ export default function DexPage() {
   );
 }
 
-function DexCard({ entry }: { entry: DexEntry }) {
+function DexCard({ entry, onEvolve }: { entry: DexEntry; onEvolve: (id: number) => void }) {
+  const currentId = entry.currentId ?? entry.id;
+  const stage = entry.stage ?? 0;
+  const currentData = getPokemonDisplayData(currentId);
+  const canEvolve = !!(currentData?.evolvesTo) && stage < 2;
+  const spriteUrl = entry.isShiny ? getShinySpriteUrl(currentId) : getSpriteUrl(currentId);
+  const displayName = currentData?.name ?? entry.name;
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-3 flex flex-col items-center gap-1.5">
+    <div className={`bg-white rounded-2xl shadow-sm p-3 flex flex-col items-center gap-1.5 relative
+      ${entry.isShiny ? "ring-2 ring-yellow-300" : ""}`}>
+
+      {entry.isShiny && (
+        <span className="absolute top-1.5 right-1.5 text-[9px] font-black bg-yellow-300 text-yellow-900 px-1 py-0.5 rounded-full">
+          ✨
+        </span>
+      )}
+
       <div className="w-16 h-16 rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={entry.assetPath} alt={entry.name}
+        <img src={spriteUrl} alt={displayName}
           className="w-12 h-12 object-contain"
           style={{ imageRendering: "pixelated" }} />
       </div>
       <p className="text-[10px] text-gray-400 font-mono">#{String(entry.id).padStart(3,"0")}</p>
-      <p className="text-xs font-black text-gray-800 text-center leading-tight">{entry.name}</p>
+      <p className="text-xs font-black text-gray-800 text-center leading-tight">{displayName}</p>
       <div className="flex flex-wrap gap-0.5 justify-center">
-        {entry.types.map((t) => (
+        {(currentData?.types ?? entry.types).map((t) => (
           <span key={t} className="text-[9px] text-white px-1.5 py-0.5 rounded-full font-semibold"
             style={{ backgroundColor: TYPE_COLORS[t] }}>{TYPE_LABELS[t]}</span>
         ))}
       </div>
       <p className="text-[9px] text-gray-300">{entry.registeredDate}</p>
+
+      {canEvolve && (
+        <button
+          onClick={() => onEvolve(entry.id)}
+          className="w-full mt-1 py-1 rounded-xl text-[10px] font-black text-white bg-purple-500 active:scale-95 transition-transform"
+        >
+          진화 ▶
+        </button>
+      )}
     </div>
   );
 }

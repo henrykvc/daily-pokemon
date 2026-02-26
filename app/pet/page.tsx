@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getSeoulDateString } from "@/lib/date";
 import {
@@ -9,17 +9,20 @@ import {
   updateDailyMission,
   addToDex,
   markAddedToDex,
-  getDeckEntries,
-  addToDeckStorage,
-  removeFromDeckStorage,
-  saveDeckEntries,
-  levelUpInDeck,
-  markLeveledUpToday,
+  onMissionsAllComplete,
+  getDexCollection,
 } from "@/lib/storage";
-import type { DailyState, DeckEntry } from "@/lib/types";
+import type { DailyState } from "@/lib/types";
 import { TYPE_COLORS, TYPE_LABELS, MOOD_LABELS } from "@/lib/types";
-import { getPokemonDisplayData, getSpriteUrl } from "@/lib/pokemon-data";
+import { getSpriteUrl, getShinySpriteUrl, ALL_POKEMON_IDS, getPokemonDisplayData } from "@/lib/pokemon-data";
 import ShareCard from "@/components/ShareCard";
+import {
+  getUserId,
+  getShareUrl,
+  recordVisit,
+  getUnclaimedBonusCount,
+  claimOneBonus,
+} from "@/lib/referral";
 
 function hexAlpha(hex: string, alpha: number): string {
   if (!hex || hex.length < 7) return `rgba(239,68,68,${alpha})`;
@@ -96,78 +99,18 @@ function CatchAnimation({ src, name, onDone }: { src: string; name: string; onDo
   );
 }
 
-// ── 덱 교체 UI ───────────────────────────────────────────
-function ReplaceModal({
-  newPokemonId,
-  newPokemonName,
-  deckEntries,
-  onReplace,
-  onCancel,
-}: {
-  newPokemonId: number;
-  newPokemonName: string;
-  deckEntries: DeckEntry[];
-  onReplace: (removeCaughtId: number) => void;
-  onCancel: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50">
-      <div className="w-full max-w-[480px] bg-white rounded-t-3xl p-5 pb-8">
-        <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
-        <h3 className="font-black text-gray-800 text-lg mb-1">덱이 가득 찼어요!</h3>
-        <p className="text-sm text-gray-500 mb-4">
-          <span className="font-bold text-gray-700">{newPokemonName}</span>을(를) 덱에 추가하려면
-          내보낼 포켓몬을 선택하세요.
-        </p>
-        <div className="space-y-2 mb-4">
-          {deckEntries.map((entry) => {
-            const d = getPokemonDisplayData(entry.currentId);
-            if (!d) return null;
-            return (
-              <button
-                key={entry.caughtId}
-                onClick={() => onReplace(entry.caughtId)}
-                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-gray-50
-                  border border-gray-100 active:scale-[0.98] transition-transform"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={getSpriteUrl(entry.currentId)}
-                  alt={d.name}
-                  className="w-12 h-12 object-contain"
-                  style={{ imageRendering: "pixelated" }}
-                />
-                <div className="text-left">
-                  <p className="font-bold text-gray-800 text-sm">{d.nameEn ?? d.name}</p>
-                  <p className="text-xs text-gray-400">Lv.{entry.level} · {d.name}</p>
-                </div>
-                <span className="ml-auto text-xs text-red-400 font-bold">내보내기 →</span>
-              </button>
-            );
-          })}
-        </div>
-        <button onClick={onCancel} className="w-full py-3 text-gray-400 text-sm font-medium">
-          취소
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export default function PetPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const today = getSeoulDateString();
   const [state, setState] = useState<DailyState | null>(null);
   const [showStamp, setShowStamp] = useState(false);
   const [showCatch, setShowCatch] = useState(false);
+  const [catchSrc, setCatchSrc] = useState("");
+  const [catchName, setCatchName] = useState("");
   const [shareMode, setShareMode] = useState(false);
-
-  // 덱 관련 상태
-  const [deckEntries, setDeckEntries] = useState<DeckEntry[]>([]);
-  const [showLevelUp, setShowLevelUp] = useState(false);
-  const [levelUpTo, setLevelUpTo] = useState(0);
-  const [showReplace, setShowReplace] = useState(false);
-  const [addedToDeck, setAddedToDeck] = useState(false);
+  const [bonusCount, setBonusCount] = useState(0);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const s = getDailyState(today);
@@ -175,13 +118,15 @@ export default function PetPage() {
     setState(s);
     if (s.isAddedToDex) setShowStamp(true);
 
-    const deck = getDeckEntries();
-    setDeckEntries(deck);
+    // 공유 링크 방문 기록
+    const refId = searchParams.get("ref");
+    if (refId) {
+      recordVisit(refId, today);
+    }
 
-    // 이미 덱에 이 포켓몬이 있는지 확인 (추가됐던 경우)
-    const alreadyInDeck = deck.some((e) => e.caughtId === s.pokemonResult.id);
-    if (alreadyInDeck) setAddedToDeck(true);
-  }, [today, router]);
+    // 보너스 포켓몬 개수 확인
+    getUnclaimedBonusCount(today).then(setBonusCount);
+  }, [today, router, searchParams]);
 
   function handleMissionToggle(index: number) {
     if (!state || state.isAddedToDex) return;
@@ -191,109 +136,68 @@ export default function PetPage() {
 
     if (updated.isAllMissionsDone && !updated.isAddedToDex) {
       setTimeout(() => {
-        addToDex(updated.pokemonResult, today);
+        const isShiny = onMissionsAllComplete(today);
+        addToDex(updated.pokemonResult, today, isShiny);
         markAddedToDex(today);
 
-        // 덱 레벨업 체크
-        const deck = getDeckEntries();
-        const deckMatch = deck.find((e) => e.caughtId === updated.pokemonResult.id);
-
-        if (deckMatch && !updated.isLeveledUpToday) {
-          const leveled = levelUpInDeck(deckMatch.caughtId);
-          if (leveled) {
-            markLeveledUpToday(today);
-            setLevelUpTo(leveled.level);
-            setShowLevelUp(true);
-            setDeckEntries(getDeckEntries());
-            setTimeout(() => setShowLevelUp(false), 2500);
-          }
-        }
-
-        setState((prev) => prev ? { ...prev, isAddedToDex: true } : prev);
+        setState((prev) => prev ? { ...prev, isAddedToDex: true, isShiny } : prev);
         setShowStamp(true);
+        setCatchSrc(isShiny ? getShinySpriteUrl(updated.pokemonResult.id) : getSpriteUrl(updated.pokemonResult.id));
+        setCatchName(updated.pokemonResult.name);
         setShowCatch(true);
       }, 400);
     }
   }
 
-  function handleAddToDeck() {
-    if (!state) return;
-    const deck = getDeckEntries();
-    const pokemonId = state.pokemonResult.id;
+  async function handleBonusCatch() {
+    const claimed = await claimOneBonus(today);
+    if (!claimed) return;
 
-    if (deck.length < 3) {
-      // 빈 슬롯 있음 → 바로 추가
-      const newEntry: DeckEntry = {
-        caughtId: pokemonId,
-        currentId: pokemonId,
-        level: 1,
-        stage: 0,
-        addedDate: today,
-      };
-      const updated = addToDeckStorage(newEntry);
-      setDeckEntries(updated);
-      setAddedToDeck(true);
-    } else {
-      // 덱 가득 참 → 교체 UI
-      setShowReplace(true);
-    }
+    // 아직 없는 포켓몬 중 랜덤
+    const collected = getDexCollection().map((e) => e.id);
+    const available = ALL_POKEMON_IDS.filter((id) => !collected.includes(id));
+    const pool = available.length > 0 ? available : ALL_POKEMON_IDS;
+    const randomId = pool[Math.floor(Math.random() * pool.length)];
+    const data = getPokemonDisplayData(randomId);
+    if (!data) return;
+
+    const bonusPokemon = {
+      id: randomId,
+      name: data.name,
+      nameEn: data.nameEn,
+      types: data.types,
+      assetPath: getSpriteUrl(randomId),
+      description: "보너스로 나타났어!",
+    };
+
+    addToDex(bonusPokemon, today, false);
+    setBonusCount((prev) => Math.max(0, prev - 1));
+    setCatchSrc(getSpriteUrl(randomId));
+    setCatchName(data.name);
+    setShowCatch(true);
   }
 
-  function handleReplace(removeCaughtId: number) {
-    if (!state) return;
-    const afterRemove = removeFromDeckStorage(removeCaughtId);
-    const newEntry: DeckEntry = {
-      caughtId: state.pokemonResult.id,
-      currentId: state.pokemonResult.id,
-      level: 1,
-      stage: 0,
-      addedDate: today,
-    };
-    const newDeck = [...afterRemove, newEntry];
-    saveDeckEntries(newDeck);
-    setDeckEntries(newDeck);
-    setAddedToDeck(true);
-    setShowReplace(false);
+  function handleCopyShare() {
+    const url = getShareUrl();
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   }
 
   const handleCatchDone = useCallback(() => setShowCatch(false), []);
 
   if (!state) return <LoadingScreen />;
 
-  const { pokemonResult, missions, input, isAddedToDex } = state;
+  const { pokemonResult, missions, input, isAddedToDex, isShiny } = state;
   const completedCount = missions.filter((m) => m.done).length;
   const mc = input.mainColor;
-
-  // 이미 덱에 있는 포켓몬인지 (currentId 기준도 포함)
-  const isInDeck = deckEntries.some((e) => e.caughtId === pokemonResult.id);
-  const isDeckFull = deckEntries.length >= 3;
+  const spriteUrl = isShiny ? getShinySpriteUrl(pokemonResult.id) : getSpriteUrl(pokemonResult.id);
 
   return (
     <main className="flex-1 flex flex-col min-h-screen" style={{ backgroundColor: hexAlpha(mc, 0.05) }}>
       {showCatch && (
-        <CatchAnimation
-          src={pokemonResult.assetPath}
-          name={pokemonResult.name}
-          onDone={handleCatchDone}
-        />
-      )}
-
-      {showReplace && state && (
-        <ReplaceModal
-          newPokemonId={pokemonResult.id}
-          newPokemonName={pokemonResult.nameEn ?? pokemonResult.name}
-          deckEntries={deckEntries}
-          onReplace={handleReplace}
-          onCancel={() => setShowReplace(false)}
-        />
-      )}
-
-      {/* 레벨업 알림 */}
-      {showLevelUp && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-30 level-up-badge
-          bg-yellow-400 text-white font-black px-5 py-2.5 rounded-full shadow-lg text-sm">
-          ⬆️ {pokemonResult.name} Lv.{levelUpTo}!
-        </div>
+        <CatchAnimation src={catchSrc} name={catchName} onDone={handleCatchDone} />
       )}
 
       {/* Top bar */}
@@ -323,33 +227,24 @@ export default function PetPage() {
           </div>
         )}
 
-        {/* 덱 레벨 뱃지 */}
-        {isInDeck && (() => {
-          const entry = deckEntries.find((e) => e.caughtId === pokemonResult.id);
-          return entry ? (
-            <div className="absolute top-4 left-4 z-10">
-              <div className="bg-yellow-400 text-white text-[10px] font-black px-2 py-1 rounded-full shadow">
-                덱 Lv.{entry.level}
-              </div>
+        {isShiny && (
+          <div className="absolute top-4 left-4 z-10">
+            <div className="bg-yellow-300 text-yellow-900 text-[10px] font-black px-2 py-1 rounded-full shadow">
+              ✨ 이로치
             </div>
-          ) : null;
-        })()}
+          </div>
+        )}
 
-        {/* Sprite */}
         <div className="flex justify-center pt-8 pb-2 relative">
           <div className="absolute w-44 h-44 rounded-full bg-white/20 blur-2xl top-4" />
           <div className="poke-bounce relative z-10">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={pokemonResult.assetPath}
-              alt={pokemonResult.name}
+            <img src={spriteUrl} alt={pokemonResult.name}
               className="w-40 h-40 object-contain drop-shadow-2xl"
-              style={{ imageRendering: "pixelated" }}
-            />
+              style={{ imageRendering: "pixelated" }} />
           </div>
         </div>
 
-        {/* Info panel */}
         <div className="bg-white/90 backdrop-blur-sm mx-3 mb-3 rounded-2xl p-4">
           <div className="flex items-start justify-between mb-3">
             <div>
@@ -414,41 +309,30 @@ export default function PetPage() {
           <div className="mt-4 space-y-2">
             <div className="py-3 rounded-2xl text-center"
               style={{ backgroundColor: hexAlpha(mc, 0.1) }}>
-              <p className="text-sm font-bold" style={{ color: mc }}>🎉 완료! 도감에 등록됐어요.</p>
+              <p className="text-sm font-bold" style={{ color: mc }}>
+                {isShiny ? "✨ 이로치 포획! 도감에 등록됐어요." : "🎉 완료! 도감에 등록됐어요."}
+              </p>
             </div>
 
-            {/* 덱 추가 버튼 */}
-            {!isInDeck && !addedToDeck && (
+            {/* 보너스 포켓몬 */}
+            {bonusCount > 0 && (
               <button
-                onClick={handleAddToDeck}
-                className="w-full py-3 rounded-2xl text-white font-black text-sm
-                  active:scale-[0.98] transition-transform"
-                style={{
-                  background: isDeckFull
-                    ? "linear-gradient(135deg, #6366f1, #8b5cf6)"
-                    : "linear-gradient(135deg, #f59e0b, #ef4444)",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                }}
+                onClick={handleBonusCatch}
+                className="w-full py-3 rounded-2xl text-white font-black text-sm active:scale-[0.98] transition-transform"
+                style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
               >
-                {isDeckFull
-                  ? "🔄 덱 교체하기 (덱 가득참)"
-                  : "➕ 나의 덱에 추가하기"}
+                🎁 보너스 포켓몬 잡기 ({bonusCount}마리 남음)
               </button>
             )}
 
-            {(isInDeck || addedToDeck) && (
-              <div className="flex items-center gap-2 py-2 px-3 rounded-2xl bg-yellow-50">
-                <span className="text-yellow-500">⭐</span>
-                <p className="text-xs font-bold text-yellow-700">
-                  {isInDeck && !addedToDeck
-                    ? "이미 덱에 있어요! 중복 → 자동 레벨업"
-                    : "덱에 추가됐어요!"}
-                </p>
-                <Link href="/deck" className="ml-auto text-xs text-yellow-600 font-bold underline">
-                  덱 보기 →
-                </Link>
-              </div>
-            )}
+            {/* 공유하기 */}
+            <button
+              onClick={handleCopyShare}
+              className="w-full py-3 rounded-2xl font-black text-sm active:scale-[0.98] transition-transform border-2"
+              style={{ borderColor: mc, color: mc, backgroundColor: hexAlpha(mc, 0.06) }}
+            >
+              {copied ? "✅ 링크 복사됨!" : "🔗 친구에게 공유하기 (+보너스 포켓몬)"}
+            </button>
           </div>
         )}
       </div>

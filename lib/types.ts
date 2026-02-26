@@ -63,7 +63,7 @@ export interface DailyState {
   pokemonResult: PokemonResult;
   isAllMissionsDone: boolean;
   isAddedToDex: boolean;
-  isLeveledUpToday?: boolean;      // 오늘 덱 레벨업 발생 여부
+  isShiny?: boolean;               // 7일 연속 미션 완료 시 이로치 출현
 }
 
 // ── 도감 항목 (LocalStorage: dexCollection) ──
@@ -75,27 +75,21 @@ export interface DexEntry {
   assetPath: string;
   registeredAt: string;            // ISO 날짜 문자열
   registeredDate: string;         // "YYYY-MM-DD"
+  stage?: number;                  // 0=기본, 1=1차진화, 2=최종
+  currentId?: number;             // 현재 진화 형태 ID
+  eeveeEvoId?: number;            // 이브이 전용: 선택된 진화 ID
+  isShiny?: boolean;              // 이로치 여부
 }
 
 // ── 도감 전체 ──
 export type DexCollection = DexEntry[];
-
-// ── 덱 항목 ──
-export interface DeckEntry {
-  caughtId: number;       // 처음 잡았을 때 포켓몬 ID
-  currentId: number;      // 현재 형태 ID (진화 후 변경)
-  level: number;          // 1~9
-  stage: number;          // 0=기본형, 1=1차진화, 2=2차진화
-  addedDate: string;      // YYYY-MM-DD
-  eeveeEvoId?: number;    // 이브이 전용: 랜덤으로 선택된 진화 대상 ID
-}
 
 // ── LocalStorage 키 헬퍼 ──
 export const STORAGE_KEYS = {
   dailyState: (date: string) => `dailyState:${date}`,
   dexCollection: "dexCollection",
   userPrefs: "userPrefs",
-  deckEntries: "deckEntries",
+  streakData: "streakData",
 } as const;
 
 // ── Mood labels ──

@@ -9,12 +9,13 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@babel/plugin-transform-runtime": "^7.24.0",
+    "@babel/runtime": "^7.24.0",
+    "@supabase/supabase-js": "^2.97.0",
+    "html-to-image": "^1.11.11",
     "next": "^15.1.0",
     "react": "^19",
-    "react-dom": "^19",
-    "html-to-image": "^1.11.11",
-    "@babel/runtime": "^7.24.0",
-    "@babel/plugin-transform-runtime": "^7.24.0"
+    "react-dom": "^19"
   },
   "devDependencies": {
     "@types/node": "^20",
